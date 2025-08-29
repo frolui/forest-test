@@ -97,10 +97,10 @@ async def layer_mvt(
             SELECT
                 id,
                 properties,
-                ST_AsMVTGeom(f.geom, bounds.g, 4096, 64, true) AS geom
+                ST_AsMVTGeom(f.geom_3857, bounds.g, 4096, 64, true) AS geom
             FROM features f, bounds
             WHERE f.layer_id = :layer_id
-              AND f.geom && bounds.g
+              AND f.geom_3857 && bounds.g
         )
         SELECT ST_AsMVT(mvtgeom, 'layer', 4096, 'geom') FROM mvtgeom;
     """)

@@ -1,9 +1,16 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type maplibregl from 'maplibre-gl'
 import { fetchLayers, mvtUrlFor, logout } from '../api'
 import type { DbLayer, User } from '../types'
 
-type Props = { map: maplibregl.Map | null, user: User | null, onLogout: () => void }
+type Props = {
+  map: maplibregl.Map | null
+  user: User | null
+  onLogout: () => void
+  initialState?: Record<number, LayerState>
+  onStateChange?: (s: Record<number, LayerState>) => void
+  mapReady?: boolean
+}
 
 type LayerState = { enabled: boolean; visible: boolean }
 
@@ -34,7 +41,7 @@ function removeLayer(map: maplibregl.Map, id: number) {
   const src = `src-${id}`; if (map.getSource(src)) map.removeSource(src)
 }
 
-export default function LayersPanel({ map, user, onLogout }: Props) {
+export default function LayersPanel({ map, user, onLogout, initialState, onStateChange, mapReady }: Props) {
   const [rows, setRows] = useState<DbLayer[]>([])
   const [err, setErr] = useState<string | null>(null)
   const [state, setState] = useState<Record<number, LayerState>>({})
@@ -45,11 +52,33 @@ export default function LayersPanel({ map, user, onLogout }: Props) {
     return () => { cancel = true }
   }, [])
 
+  // гидратация состояния — только когда стиль карты загружен
+  const hydratedRef = useRef(false)
+  useEffect(() => {
+    if (hydratedRef.current) return
+    if (!map || !mapReady) return
+    if (!rows.length) return
+    hydratedRef.current = true
+
+    const init = initialState ?? {}
+    setState(init)
+    for (const r of rows) {
+      const st = init[r.id]
+      if (st?.enabled) {
+        ensureLayerAdded(map, r.id)
+        setLayerVisibility(map, r.id, st.visible !== false)
+      }
+    }
+  }, [map, mapReady, rows, initialState])
+
+  // отдаём изменения наверх — для сохранения map_state
+  useEffect(() => { onStateChange?.(state) }, [state, onStateChange])
+
   const headerRight = (
     <div className="lp-user">
       {user ? <>
-        <span title={user.email}>👤 {user.email}</span>
-        <button className="lp-btn lp-logout" onClick={async ()=>{
+        <span title={user.email || user.username || ''}>👤 {user.email || user.username}</span>
+        <button type="button" className="lp-btn lp-logout" onClick={async ()=>{
           await logout(); onLogout();
         }}>Logout</button>
       </> : <span className="lp-muted">Not signed in</span>}
@@ -84,7 +113,7 @@ export default function LayersPanel({ map, user, onLogout }: Props) {
                 </td>
                 <td><span className="lp-name" style={{color: st.enabled ? colorFor(r.id) : '#333'}}>{r.name}</span></td>
                 <td>
-                  <button className="lp-btn" title={st.visible ? 'Hide' : 'Show'}
+                  <button type="button" className="lp-btn" title={st.visible ? 'Hide' : 'Show'}
                     disabled={!st.enabled || !map}
                     onClick={()=>{
                       if (!map) return

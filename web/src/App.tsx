@@ -4,21 +4,51 @@ import maplibregl from 'maplibre-gl'
 import { useEffect, useRef, useState } from 'react'
 import LayersPanel from './components/LayersPanel'
 import LoginPage from './components/LoginPage'
-import { me } from './api'
-import type { User } from './types'
+import { me, saveMapState } from './api'
+import type { User, MapState, LayerState } from './types'
 
 const App = () => {
-  const mapRef = useRef<HTMLDivElement>(null)
-  const [map, setMap] = useState<maplibregl.Map | null>(null)
+  const containerRef = useRef<HTMLDivElement>(null)
+  const mapRef = useRef<maplibregl.Map | null>(null)  // карта живёт в ref
+  const [mapReady, setMapReady] = useState(false)     // стиль загружен
   const [user, setUser] = useState<User | null>(null)
   const [authChecked, setAuthChecked] = useState(false)
 
-  useEffect(() => {  // проверяем сессию при загрузке
-    me().then(u => setUser(u)).finally(()=>setAuthChecked(true))
+  // локальное состояние слоёв для сохранения
+  const [layerState, setLayerState] = useState<Record<number, LayerState>>({})
+  const layerStateRef = useRef(layerState)
+  useEffect(() => { layerStateRef.current = layerState }, [layerState])
+
+  const hydratingRef = useRef(true)                   // пока применяем сохранённый вид
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const scheduleSave = () => {
+    const m = mapRef.current
+    if (!m || !user || hydratingRef.current) return
+    if (saveTimer.current) clearTimeout(saveTimer.current)
+    saveTimer.current = setTimeout(async () => {
+      const s: MapState = {
+        center: m.getCenter().toArray() as [number, number],
+        zoom: m.getZoom(),
+        bearing: m.getBearing(),
+        pitch: m.getPitch(),
+        layers: layerStateRef.current
+      }
+      try { await saveMapState(s) } catch { /* ignore */ }
+    }, 1000)
+  }
+
+  // проверяем сессию
+  useEffect(() => {
+    me().then(setUser).finally(() => setAuthChecked(true))
   }, [])
 
+  // создаём карту ОДИН РАЗ после логина
   useEffect(() => {
-    if (!mapRef.current) return
+    if (!user) return
+    if (!containerRef.current) return
+    if (mapRef.current) return
+
     const style: maplibregl.StyleSpecification = {
       version: 8,
       sources: {
@@ -50,22 +80,56 @@ const App = () => {
       ]
     }
 
-    const m = new maplibregl.Map({ container: mapRef.current, style, center: [2.2137, 46.2276], zoom: 6 })
+    const m = new maplibregl.Map({
+      container: containerRef.current,
+      style,
+      center: [2.2137, 46.2276],
+      zoom: 6
+    })
     m.addControl(new maplibregl.NavigationControl(), 'top-right')
-    setMap(m)
-    return () => m.remove()
-  }, [])
+    mapRef.current = m
+
+    m.on('load', () => {
+      hydratingRef.current = true
+      const st = user.map_state
+      if (st?.bounds) {
+        m.fitBounds(st.bounds, { padding: 24, maxZoom: st.zoom ?? 22 })
+      } else {
+        if (st?.center) m.setCenter(st.center)
+        if (typeof st?.zoom === 'number') m.setZoom(st.zoom)
+        if (typeof st?.bearing === 'number') m.setBearing(st.bearing)
+        if (typeof st?.pitch === 'number') m.setPitch(st.pitch)
+      }
+      m.once('idle', () => { hydratingRef.current = false; setMapReady(true) })
+    })
+
+    const onMoveEnd = () => scheduleSave()
+    m.on('moveend', onMoveEnd)
+    m.on('rotateend', onMoveEnd)
+    m.on('pitchend', onMoveEnd)
+
+    return () => { m.remove(); mapRef.current = null; setMapReady(false) }
+  }, [user])
+
+  // сохраняем при изменении слоёв (не в фазе гидратации)
+  useEffect(() => { scheduleSave() }, [layerState]) // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!authChecked) return null
-
   if (!user) {
-    return <LoginPage onSuccess={async ()=>{ const u = await me(); setUser(u) }} />
+    return <LoginPage onSuccess={async () => { const u = await me(); setUser(u) }} />
   }
 
   return (
     <div className="map">
-      <LayersPanel map={map} user={user} onLogout={()=>setUser(null)} />
-      <div ref={mapRef} style={{ width:'100%', height:'100%' }} />
+      <LayersPanel
+        map={mapRef.current}
+        mapReady={mapReady}
+        user={user}
+        onLogout={() => setUser(null)}
+        initialState={user.map_state?.layers ?? {}}
+        onStateChange={(s) => setLayerState(s)}
+      />
+      <div ref={containerRef} style={{ width: '100%', height: '100%' }} />
     </div>
   )
 }
