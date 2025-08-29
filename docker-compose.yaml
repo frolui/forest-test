@@ -1,0 +1,134 @@
+version: '3.7'
+
+services:
+  web:
+    build: ./web
+    ports:
+      - "8081:80"
+    depends_on: 
+      - backend
+
+  backend:
+    build: ./backend
+    environment:
+      DB_DSN: postgresql+psycopg://airflow:airflow@postgres:5432/airflow
+      JWT_SECRET: "dev-secret-change-me"
+      CORS_ORIGINS: '["http://localhost:8081"]'
+    depends_on: 
+      - postgres
+    ports:
+      - "8000:8000"
+    
+  postgres:
+    build: ./db
+    environment:
+      POSTGRES_USER: airflow
+      POSTGRES_PASSWORD: airflow
+      POSTGRES_DB: airflow
+    volumes:
+      - postgres-db-volume:/var/lib/postgresql/data
+    restart: always
+
+  pgadmin:
+    image: dpage/pgadmin4:9.6
+    restart: always
+    depends_on:
+      - postgres
+    ports:
+      - "5050:80"
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@example.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+    volumes:
+      - pgadmin-data:/var/lib/pgadmin
+
+  redis:
+    image: redis:8.2.0-alpine3.22
+    ports:
+      - "6379:6379"
+    restart: always
+  
+  airflow-init:
+    image: apache/airflow:2.9.2
+    user: "${AIRFLOW_UID}:0"
+    environment:
+      AIRFLOW_UID: "${AIRFLOW_UID}"
+    entrypoint: /bin/bash
+    command: -lc 'mkdir -p /opt/airflow/data && chown -R ${AIRFLOW_UID}:0 /opt/airflow'
+    volumes:
+      - ./dags:/opt/airflow/dags
+      - ./data:/opt/airflow/data
+
+  airflow-webserver:
+    build: .
+    restart: always
+    depends_on:
+      - postgres
+      - redis
+      - airflow-init
+    user: "${AIRFLOW_UID}:0"
+    environment:
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres/airflow
+      AIRFLOW__WEBSERVER__EXPOSE_CONFIG: "True"
+      AIRFLOW__WEBSERVER__ENABLE_RATE_LIMIT: "True"
+      AIRFLOW__WEBSERVER__RATELIMIT_STORAGE_URI: "redis://redis:6379/0"
+      AIRFLOW__WEBSERVER__SECRET_KEY: TSNSAukK7Jmwx5bTH3pt_DzSs-uVvy6zTR9hXypptZM
+      AIRFLOW_UID: "${AIRFLOW_UID}"
+      MINIO_ACCESS_KEY: "minioadmin"
+      MINIO_SECRET_KEY: "minioadmin123"
+    volumes:
+      - ./dags:/opt/airflow/dags
+      - ./data:/opt/airflow/data
+    ports:
+      - "8080:8080"
+    command: webserver
+
+  airflow-scheduler:
+    build: .
+    restart: always
+    depends_on:
+      - postgres
+      - redis
+      - airflow-init
+    user: "${AIRFLOW_UID}:0"
+    environment:
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres/airflow
+      AIRFLOW__WEBSERVER__SECRET_KEY: TSNSAukK7Jmwx5bTH3pt_DzSs-uVvy6zTR9hXypptZM
+      AIRFLOW_UID: "${AIRFLOW_UID}"
+      MINIO_ACCESS_KEY: "minioadmin"
+      MINIO_SECRET_KEY: "minioadmin123"
+    volumes:
+      - ./dags:/opt/airflow/dags
+      - ./data:/opt/airflow/data
+    command: scheduler
+  
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.6.0
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181                   
+      ZOOKEEPER_TICK_TIME: 2000
+    ports:
+      - "2181:2181"
+    restart: always
+
+  kafka:
+    image: confluentinc/cp-kafka:7.6.0
+    depends_on:
+      - zookeeper
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:29092
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,PLAINTEXT_HOST://0.0.0.0:29092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+    restart: always
+
+volumes:
+  postgres-db-volume:
+  pgadmin-data:
+

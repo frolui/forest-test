@@ -1,0 +1,39 @@
+html, body, #root { height: 100%; margin: 0; }
+body { overflow: hidden; }
+.map { position: fixed; inset: 0; }
+
+/* панель слоёв */
+.lp-panel{
+  position:absolute; top:12px; left:12px; z-index:10;
+  width:380px; max-height:70vh; overflow:auto;
+  background:#fff; border:1px solid #ddd; border-radius:12px;
+  box-shadow:0 8px 24px rgba(0,0,0,.12); font:14px/1.4 system-ui, sans-serif
+}
+.lp-header{ display:flex; align-items:center; padding:10px 12px; border-bottom:1px solid #eee }
+.lp-spacer{ flex:1 }
+.lp-user{ display:flex; gap:8px; align-items:center; }
+.lp-table{ width:100%; border-collapse:collapse }
+.lp-table th,.lp-table td{ padding:8px 10px; border-bottom:1px solid #f4f4f4 }
+.lp-row:hover{ background:#fafafa }
+.lp-name{ display:inline-block; max-width:230px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis }
+.lp-btn{ padding:4px 8px; border:1px solid #ddd; border-radius:6px; background:#f7f7f7; cursor:pointer }
+.lp-btn.lp-logout{ background:#fff }
+.lp-muted{ color:#777; padding:10px }
+.lp-error{ color:#b00020; padding:10px }
+
+/* страница логина */
+.auth-wrap{
+  position:fixed; inset:0; display:grid; place-items:center; background:#f6f7f9;
+}
+.auth-card{
+  width:320px; padding:24px; border-radius:12px; background:#fff;
+  box-shadow:0 10px 30px rgba(0,0,0,.12); display:flex; flex-direction:column; gap:10px;
+}
+.auth-card h2{ margin:0 0 6px 0 }
+.auth-card input{
+  padding:10px; border:1px solid #ddd; border-radius:8px; font-size:14px;
+}
+.auth-card button{
+  margin-top:6px; padding:10px; border:1px solid #ddd; border-radius:8px; cursor:pointer; background:#f1f3f5;
+}
+.auth-error{ color:#b00020; font-size:13px }
