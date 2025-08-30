@@ -22,42 +22,48 @@ function colorFor(id: number) {
 function ensureLayerAdded(map: maplibregl.Map, id: number) {
   const src = `src-${id}`
   if (!map.getSource(src)) {
-    // берём шаблон как есть и вырезаем ?token=, не трогая {z}/{x}/{y}
+    // шаблон тайлов оставляем как есть, только убираем ?token= если вдруг есть
     const raw = mvtUrlFor(id)
-    const tilesUrl = raw
-      .replace(/([?&])token=[^&]*/g, '')
-      .replace(/[?&]$/, '')
+    const tilesUrl = raw.replace(/([?&])token=[^&]*/g, '').replace(/[?&]$/, '')
 
     const beforeId = map.getLayer('labels') ? 'labels' : undefined
 
     map.addSource(src, { type: 'vector', tiles: [tilesUrl], minzoom: 0, maxzoom: 22 })
 
+    // Полигоны
     map.addLayer(
       {
         id: `lyr-${id}-fill`,
         type: 'fill',
         source: src,
         'source-layer': 'layer',
+        filter: ['==', ['geometry-type'], 'Polygon'],
         paint: { 'fill-color': colorFor(id), 'fill-opacity': 0.35 }
       },
       beforeId
     )
+
+    // Линии
     map.addLayer(
       {
         id: `lyr-${id}-line`,
         type: 'line',
         source: src,
         'source-layer': 'layer',
+        filter: ['==', ['geometry-type'], 'LineString'],
         paint: { 'line-color': colorFor(id), 'line-width': 1 }
       },
       beforeId
     )
+
+    // Точки
     map.addLayer(
       {
         id: `lyr-${id}-circle`,
         type: 'circle',
         source: src,
         'source-layer': 'layer',
+        filter: ['==', ['geometry-type'], 'Point'],
         paint: {
           'circle-radius': 5,
           'circle-stroke-width': 1,
@@ -69,6 +75,7 @@ function ensureLayerAdded(map: maplibregl.Map, id: number) {
     )
   }
 }
+
 
 
 function setLayerVisibility(map: maplibregl.Map, id: number, show: boolean) {
