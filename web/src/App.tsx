@@ -4,22 +4,21 @@ import maplibregl from 'maplibre-gl'
 import { useEffect, useRef, useState } from 'react'
 import LayersPanel from './components/LayersPanel'
 import LoginPage from './components/LoginPage'
-import { me, saveMapState } from './api'
+import { me, saveMapState, getToken, API_BASE } from './api'
 import type { User, MapState, LayerState } from './types'
 
 const App = () => {
   const containerRef = useRef<HTMLDivElement>(null)
-  const mapRef = useRef<maplibregl.Map | null>(null)  // карта живёт в ref
-  const [mapReady, setMapReady] = useState(false)     // стиль загружен
+  const mapRef = useRef<maplibregl.Map | null>(null)
+  const [mapReady, setMapReady] = useState(false)
   const [user, setUser] = useState<User | null>(null)
   const [authChecked, setAuthChecked] = useState(false)
 
-  // локальное состояние слоёв для сохранения
   const [layerState, setLayerState] = useState<Record<number, LayerState>>({})
   const layerStateRef = useRef(layerState)
   useEffect(() => { layerStateRef.current = layerState }, [layerState])
 
-  const hydratingRef = useRef(true)                   // пока применяем сохранённый вид
+  const hydratingRef = useRef(true)
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const scheduleSave = () => {
@@ -34,16 +33,14 @@ const App = () => {
         pitch: m.getPitch(),
         layers: layerStateRef.current
       }
-      try { await saveMapState(s) } catch { /* ignore */ }
+      try { await saveMapState(s) } catch {}
     }, 1000)
   }
 
-  // проверяем сессию
   useEffect(() => {
     me().then(setUser).finally(() => setAuthChecked(true))
   }, [])
 
-  // создаём карту ОДИН РАЗ после логина
   useEffect(() => {
     if (!user) return
     if (!containerRef.current) return
@@ -84,7 +81,14 @@ const App = () => {
       container: containerRef.current,
       style,
       center: [2.2137, 46.2276],
-      zoom: 6
+      zoom: 6,
+      transformRequest: (url) => {
+        const t = getToken()
+        if (t && (url.startsWith(API_BASE) || url.includes('/tiles/'))) {
+          return { url, headers: { Authorization: `Bearer ${t}` } }
+        }
+        return { url }
+      }
     })
     m.addControl(new maplibregl.NavigationControl(), 'top-right')
     mapRef.current = m
@@ -111,13 +115,10 @@ const App = () => {
     return () => { m.remove(); mapRef.current = null; setMapReady(false) }
   }, [user])
 
-  // сохраняем при изменении слоёв (не в фазе гидратации)
   useEffect(() => { scheduleSave() }, [layerState]) // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!authChecked) return null
-  if (!user) {
-    return <LoginPage onSuccess={async () => { const u = await me(); setUser(u) }} />
-  }
+  if (!user) return <LoginPage onSuccess={async () => { const u = await me(); setUser(u) }} />
 
   return (
     <div className="map">

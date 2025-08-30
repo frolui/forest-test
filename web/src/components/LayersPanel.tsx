@@ -18,27 +18,73 @@ function colorFor(id: number) {
   const h = (id * 57) % 360
   return `hsl(${h} 60% 55%)`
 }
+
 function ensureLayerAdded(map: maplibregl.Map, id: number) {
   const src = `src-${id}`
   if (!map.getSource(src)) {
-    map.addSource(src, { type: 'vector', tiles: [mvtUrlFor(id)], minzoom: 0, maxzoom: 22 })
-    map.addLayer({ id: `lyr-${id}-fill`, type: 'fill', source: src, 'source-layer': 'layer',
-      paint: { 'fill-color': colorFor(id), 'fill-opacity': 0.35 } })
-    map.addLayer({ id: `lyr-${id}-line`, type: 'line', source: src, 'source-layer': 'layer',
-      paint: { 'line-color': colorFor(id), 'line-width': 1 } })
+    // берём шаблон как есть и вырезаем ?token=, не трогая {z}/{x}/{y}
+    const raw = mvtUrlFor(id)
+    const tilesUrl = raw
+      .replace(/([?&])token=[^&]*/g, '')
+      .replace(/[?&]$/, '')
+
+    const beforeId = map.getLayer('labels') ? 'labels' : undefined
+
+    map.addSource(src, { type: 'vector', tiles: [tilesUrl], minzoom: 0, maxzoom: 22 })
+
+    map.addLayer(
+      {
+        id: `lyr-${id}-fill`,
+        type: 'fill',
+        source: src,
+        'source-layer': 'layer',
+        paint: { 'fill-color': colorFor(id), 'fill-opacity': 0.35 }
+      },
+      beforeId
+    )
+    map.addLayer(
+      {
+        id: `lyr-${id}-line`,
+        type: 'line',
+        source: src,
+        'source-layer': 'layer',
+        paint: { 'line-color': colorFor(id), 'line-width': 1 }
+      },
+      beforeId
+    )
+    map.addLayer(
+      {
+        id: `lyr-${id}-circle`,
+        type: 'circle',
+        source: src,
+        'source-layer': 'layer',
+        paint: {
+          'circle-radius': 5,
+          'circle-stroke-width': 1,
+          'circle-stroke-color': '#000',
+          'circle-color': colorFor(id)
+        }
+      },
+      beforeId
+    )
   }
 }
+
+
 function setLayerVisibility(map: maplibregl.Map, id: number, show: boolean) {
-  for (const kind of ['fill','line'] as const) {
+  for (const kind of ['fill','line','circle'] as const) {
     const lid = `lyr-${id}-${kind}`
     if (map.getLayer(lid)) map.setLayoutProperty(lid, 'visibility', show ? 'visible' : 'none')
   }
 }
+
 function removeLayer(map: maplibregl.Map, id: number) {
-  for (const kind of ['fill','line'] as const) {
-    const lid = `lyr-${id}-${kind}`; if (map.getLayer(lid)) map.removeLayer(lid)
+  for (const kind of ['fill','line','circle'] as const) {
+    const lid = `lyr-${id}-${kind}`
+    if (map.getLayer(lid)) map.removeLayer(lid)
   }
-  const src = `src-${id}`; if (map.getSource(src)) map.removeSource(src)
+  const src = `src-${id}`
+  if (map.getSource(src)) map.removeSource(src)
 }
 
 export default function LayersPanel({ map, user, onLogout, initialState, onStateChange, mapReady }: Props) {
@@ -52,7 +98,7 @@ export default function LayersPanel({ map, user, onLogout, initialState, onState
     return () => { cancel = true }
   }, [])
 
-  // гидратация состояния — только когда стиль карты загружен
+  // гидратация состояния — только после загрузки стиля карты
   const hydratedRef = useRef(false)
   useEffect(() => {
     if (hydratedRef.current) return

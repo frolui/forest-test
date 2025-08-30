@@ -1,9 +1,9 @@
 import type { User, DbLayer, MapState } from './types';
 
-const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:8000';
+export const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:8000';
 
-// простое локальное хранилище токена (для тайлов)
-let token: string | null = localStorage.getItem('token') || null;
+// простое локальное хранилище токена (берём из /auth/login)
+let token: string | null = localStorage.getItem('token');
 export function getToken() { return token; }
 
 export async function me(): Promise<User | null> {
@@ -21,18 +21,13 @@ export async function login(email: string, password: string): Promise<void> {
     body: JSON.stringify({ email, password })
   });
   if (!r.ok) throw new Error((await r.text().catch(()=>'')).trim() || `login failed: ${r.status}`);
-  // достанем токен из тела
   const body = await r.json().catch(() => ({} as any));
-  if (body?.token) {
-    token = body.token as string;
-    localStorage.setItem('token', token);
-  }
+  if (body?.token) { token = body.token as string; localStorage.setItem('token', token); }
 }
 
 export async function logout(): Promise<void> {
   await fetch(`${API_BASE}/auth/logout`, { method: 'POST', credentials: 'include' });
-  token = null;
-  localStorage.removeItem('token');
+  token = null; localStorage.removeItem('token');
 }
 
 export async function fetchLayers(): Promise<DbLayer[]> {
@@ -42,8 +37,8 @@ export async function fetchLayers(): Promise<DbLayer[]> {
 }
 
 export function mvtUrlFor(layerId: number) {
-  const q = token ? `?token=${encodeURIComponent(token)}` : '';
-  return `${API_BASE}/tiles/layer/${layerId}/{z}/{x}/{y}.mvt${q}`;
+  // не добавляем ?token=... — авторизация идёт через Authorization заголовок
+  return `${API_BASE}/tiles/layer/${layerId}/{z}/{x}/{y}.mvt`;
 }
 
 export async function saveMapState(state: MapState): Promise<void> {
