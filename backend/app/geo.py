@@ -91,18 +91,17 @@ async def layer_mvt(
 ):
     sql = text("""
         WITH bounds AS (
-            SELECT ST_TileEnvelope(:z, :x, :y) AS g
-        ),
-        mvtgeom AS (
-            SELECT
-                id,
-                properties,
-                ST_AsMVTGeom(f.geom_3857, bounds.g, 4096, 64, true) AS geom
-            FROM features f, bounds
+            SELECT ST_TileEnvelope(:z, :x, :y) AS g,
+                     hpr as (select l.id, properties, geom_3857 from features l, bounds where l.geom_3857 && bounds.g)),
+             full_geom AS (
+                 SELECT id,
+                        properties,
+                        ST_AsMVTGeom(f.geom_3857, bounds.g, 4096, 64, true) AS geom
+            FROM hpr f, bounds
             WHERE f.layer_id = :layer_id
-              AND f.geom_3857 && bounds.g
+            AND f.geom_3857 && bounds.g
         )
-        SELECT ST_AsMVT(mvtgeom, 'layer', 4096, 'geom') FROM mvtgeom;
+        SELECT ST_AsMVT(mvtgeom, 'layer', 4096, 'geom') FROM full_geom;
     """)
     async with Session() as s:
         r = await s.execute(sql, {"layer_id": layer_id, "z": z, "x": x, "y": y})
