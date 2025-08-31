@@ -49,7 +49,7 @@ services:
     restart: always
   
   airflow-init:
-    image: apache/airflow:2.9.2
+    build: ./pipeline
     user: "${AIRFLOW_UID}:0"
     environment:
       AIRFLOW_UID: "${AIRFLOW_UID}"
@@ -60,7 +60,7 @@ services:
       - ./data:/opt/airflow/data
 
   airflow-webserver:
-    build: .
+    build: ./pipeline
     restart: always
     depends_on:
       - postgres
@@ -85,7 +85,7 @@ services:
     command: webserver
 
   airflow-scheduler:
-    build: .
+    build: ./pipeline
     restart: always
     depends_on:
       - postgres
@@ -127,6 +127,20 @@ services:
       KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,PLAINTEXT_HOST://0.0.0.0:29092
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
     restart: always
+
+  minio:
+    image: quay.io/minio/minio:latest
+    container_name: minio
+    command: server /data --console-address ":9001"
+    ports:
+      - "9025:9000"   # S3 API
+      - "9026:9001"   # Web UI
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin123
+    volumes:
+      - ./minio/minio-data:/data
+    restart: unless-stopped
 
 volumes:
   postgres-db-volume:

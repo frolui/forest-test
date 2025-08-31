@@ -1,5 +1,3 @@
-CREATE EXTENSION IF NOT EXISTS pgcrypto;
-
 INSERT INTO users (username, email, password_hash, is_active)
 VALUES (
   'admin',
@@ -8,8 +6,10 @@ VALUES (
   true
 );
 
-INSERT INTO layers (name, description)
-VALUES ('Sample Layer', 'Demo features around Paris (WGS84)');
+INSERT INTO layers (name, owner_id, description)
+VALUES ('Sample Layer', 
+        (select id from users where username = 'admin'),
+        'Demo features around Paris (WGS84)');
 
 INSERT INTO features (layer_id, properties, geom)
 VALUES (

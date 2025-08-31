@@ -16,6 +16,6 @@ RUN curl -L -o h3-pg.zip https://github.com/zachasme/h3-pg/archive/refs/heads/ma
  && make PG_CONFIG=/usr/bin/pg_config NO_FORMAT=1 \
  && make install
 
-COPY init_db_structure.sql /docker-entrypoint-initdb.d/
+COPY initdb/ /docker-entrypoint-initdb.d/
 
 USER postgres
