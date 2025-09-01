@@ -10,6 +10,7 @@ type Props = {
   initialState?: Record<number, LayerState>
   onStateChange?: (s: Record<number, LayerState>) => void
   mapReady?: boolean
+  onLayerSelect: (layerId: number) => void
 }
 
 type LayerState = { enabled: boolean; visible: boolean }
@@ -94,10 +95,11 @@ function removeLayer(map: maplibregl.Map, id: number) {
   if (map.getSource(src)) map.removeSource(src)
 }
 
-export default function LayersPanel({ map, user, onLogout, initialState, onStateChange, mapReady }: Props) {
+export default function LayersPanel({ map, user, onLogout, initialState, onStateChange, mapReady, onLayerSelect }: Props & { onLayerSelect: (layerId: number) => void }) {
   const [rows, setRows] = useState<DbLayer[]>([])
   const [err, setErr] = useState<string | null>(null)
   const [state, setState] = useState<Record<number, LayerState>>({})
+  const [selectedLayer, setSelectedLayer] = useState<number | null>(null)
 
   useEffect(() => {
     let cancel = false
@@ -127,6 +129,36 @@ export default function LayersPanel({ map, user, onLogout, initialState, onState
   // отдаём изменения наверх — для сохранения map_state
   useEffect(() => { onStateChange?.(state) }, [state, onStateChange])
 
+  const onClick = (e: maplibregl.MapMouseEvent & maplibregl.EventData) => {
+    console.log("Map clicked at:", e.lngLat) // Debugging log
+    if (!selectedLayer) {
+      console.log("No layer selected") // Debugging log
+      return
+    }
+
+    const features = map.queryRenderedFeatures(e.point, {
+      layers: [`lyr-${selectedLayer}-fill`, `lyr-${selectedLayer}-line`, `lyr-${selectedLayer}-circle`]
+    })
+
+    console.log("Queried features:", features) // Debugging log
+
+    if (features.length > 0) {
+      const feature = features[0]
+      const properties = feature.properties
+
+      // Create a popup with feature properties
+      const popup = new maplibregl.Popup({ closeOnClick: true })
+        .setLngLat(e.lngLat)
+        .setHTML(
+          `<div>
+            <h4>Feature Properties</h4>
+            <pre>${JSON.stringify(properties, null, 2)}</pre>
+          </div>`
+        )
+        .addTo(map)
+    }
+  }
+
   const headerRight = (
     <div className="lp-user">
       {user ? <>
@@ -150,7 +182,16 @@ export default function LayersPanel({ map, user, onLogout, initialState, onState
           {rows.map(r => {
             const st = state[r.id] ?? { enabled: false, visible: true }
             return (
-              <tr key={r.id} className="lp-row" title={r.description ?? ''}>
+              // Highlight the selected layer row
+              <tr
+                key={r.id}
+                className={`lp-row ${selectedLayer === r.id ? 'lp-row-active' : ''}`}
+                title={r.description ?? ''}
+                onClick={() => {
+                  setSelectedLayer(r.id); // Update the selected layer state
+                  onLayerSelect(r.id); // Notify parent about the selection
+                }}
+              >
                 <td>
                   <input type="checkbox" checked={st.enabled}
                     onChange={()=>{
@@ -186,7 +227,7 @@ export default function LayersPanel({ map, user, onLogout, initialState, onState
         </tbody>
       </table>
     )
-  }, [rows, state, map, err])
+  }, [rows, state, map, err, onLayerSelect, selectedLayer])
 
   return (
     <div className="lp-panel">

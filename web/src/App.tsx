@@ -1,6 +1,6 @@
 import 'maplibre-gl/dist/maplibre-gl.css'
 import './index.css'
-import maplibregl from 'maplibre-gl'
+import maplibregl, { Popup } from 'maplibre-gl'
 import { useEffect, useRef, useState } from 'react'
 import LayersPanel from './components/LayersPanel'
 import LoginPage from './components/LoginPage'
@@ -117,6 +117,43 @@ const App = () => {
 
   useEffect(() => { scheduleSave() }, [layerState]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  const [selectedLayer, setSelectedLayer] = useState<number | null>(null)
+
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map) return
+
+    const onClick = (e: maplibregl.MapMouseEvent & maplibregl.EventData) => {
+      if (!selectedLayer) return
+
+      const features = map.queryRenderedFeatures(e.point, {
+        layers: [`lyr-${selectedLayer}-fill`, `lyr-${selectedLayer}-line`, `lyr-${selectedLayer}-circle`]
+      })
+
+      if (features.length > 0) {
+        const feature = features[0]
+        const properties = feature.properties
+
+        // Create a popup with feature properties
+        const popup = new Popup({ closeOnClick: true })
+          .setLngLat(e.lngLat)
+          .setHTML(
+            `<div>
+              <h4>Feature Properties</h4>
+              <pre>${JSON.stringify(properties, null, 2)}</pre>
+            </div>`
+          )
+          .addTo(map)
+      }
+    }
+
+    map.on('click', onClick)
+
+    return () => {
+      map.off('click', onClick)
+    }
+  }, [selectedLayer])
+
   if (!authChecked) return null
   if (!user) return <LoginPage onSuccess={async () => { const u = await me(); setUser(u) }} />
 
@@ -129,6 +166,7 @@ const App = () => {
         onLogout={() => setUser(null)}
         initialState={user.map_state?.layers ?? {}}
         onStateChange={(s) => setLayerState(s)}
+        onLayerSelect={(layerId) => setSelectedLayer(layerId)} // Handle layer selection
       />
       <div ref={containerRef} style={{ width: '100%', height: '100%' }} />
     </div>

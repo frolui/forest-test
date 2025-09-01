@@ -15,6 +15,10 @@ body { overflow: hidden; }
 .lp-table{ width:100%; border-collapse:collapse }
 .lp-table th,.lp-table td{ padding:8px 10px; border-bottom:1px solid #f4f4f4 }
 .lp-row:hover{ background:#fafafa }
+.lp-row.lp-row-active {
+  background: #e6f7ff;
+  border-left: 4px solid #1890ff;
+}
 .lp-name{ display:inline-block; max-width:230px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis }
 .lp-btn{ padding:4px 8px; border:1px solid #ddd; border-radius:6px; background:#f7f7f7; cursor:pointer }
 .lp-btn.lp-logout{ background:#fff }
