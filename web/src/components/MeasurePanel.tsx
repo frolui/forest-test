@@ -153,6 +153,9 @@ export default function MeasurePanel({ map, mapReady }: Props) {
       <div className="tp-row">
         <button className="tp-btn primary" onClick={()=>console.log('Get analysis clicked')}>Get analysis</button>
       </div>
+      <div className="tp-row">
+        <button className="tp-btn primary" onClick={() => console.log('Generate CHM clicked')}>Generate CHM</button>
+      </div>
     </div>
   )
 }

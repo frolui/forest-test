@@ -162,7 +162,6 @@ const App = () => {
     <div className="map">
       {/* panels row (left-top) */}
       <div className="panels">
-        <MeasurePanel map={mapRef.current} mapReady={mapReady} />
         <LayersPanel
           map={mapRef.current}
           mapReady={mapReady}
@@ -172,6 +171,7 @@ const App = () => {
           onStateChange={(s) => setLayerState(s)}
           onLayerSelect={(layerId) => setSelectedLayer(layerId)}
         />
+        <MeasurePanel map={mapRef.current} mapReady={mapReady} />        
       </div>
 
       <div ref={containerRef} style={{ width: '100%', height: '100%' }} />

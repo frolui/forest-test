@@ -1,94 +1,29 @@
+/* ---- App layout ---- */
 html, body, #root { height: 100%; margin: 0; }
 body { overflow: hidden; }
 .map { position: fixed; inset: 0; }
 
-/* layer panel */
-.lp-panel{
-  position:absolute; top:12px; left:12px; z-index:10;
-  width:380px; max-height:70vh; overflow:auto;
-  background:#fff; border:1px solid #ddd; border-radius:12px;
-  box-shadow:0 8px 24px rgba(0,0,0,.12); font:14px/1.4 system-ui, sans-serif
-}
-.lp-header{ display:flex; align-items:center; padding:10px 12px; border-bottom:1px solid #eee }
-.lp-spacer{ flex:1 }
-.lp-user{ display:flex; gap:8px; align-items:center; }
-.lp-table{ width:100%; border-collapse:collapse }
-.lp-table th,.lp-table td{ padding:8px 10px; border-bottom:1px solid #f4f4f4 }
-.lp-row:hover{ background:#fafafa }
-.lp-row.lp-row-active {
-  background: #e6f7ff;
-  border-left: 4px solid #1890ff;
-}
-.lp-name{ display:inline-block; max-width:230px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis }
-.lp-btn{ padding:4px 8px; border:1px solid #ddd; border-radius:6px; background:#f7f7f7; cursor:pointer }
-.lp-btn.lp-logout{ background:#fff }
-.lp-muted{ color:#777; padding:10px }
-.lp-error{ color:#b00020; padding:10px }
-
-/* login page */
-.auth-wrap{
-  position:fixed; inset:0; display:grid; place-items:center; background:#f6f7f9;
-}
-.auth-card{
-  width:320px; padding:24px; border-radius:12px; background:#fff;
-  box-shadow:0 10px 30px rgba(0,0,0,.12); display:flex; flex-direction:column; gap:10px;
-}
-.auth-card h2{ margin:0 0 6px 0 }
-.auth-card input{
-  padding:10px; border:1px solid #ddd; border-radius:8px; font-size:14px;
-}
-.auth-card button{
-  margin-top:6px; padding:10px; border:1px solid #ddd; border-radius:8px; cursor:pointer; background:#f1f3f5;
-}
-.auth-error{ color:#b00020; font-size:13px }
-
-/* Raise popups above the canvas and any layers */
-.maplibregl-popup {
-  z-index: 10000 !important;
-}
-
-/* Lower the canvas just in case */
-.maplibregl-canvas,
-.maplibregl-canvas-container {
-  z-index: 0 !important;
-}
-
-/* Popup content layout */
-.maplibregl-popup-content {
-  max-width: 340px;
-  max-height: 50vh;
-  overflow: auto;
-  white-space: normal;
-  font: 12px/1.4 system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-}
-
-.maplibregl-popup-content pre {
-  margin: 0;
-  white-space: pre-wrap;      /* Wrap long lines */
-  word-break: break-word;
-  overflow-wrap: anywhere;
-}
-
-/* Panels container at top-left */
+/* ---- Panels container (top-left) ---- */
 .panels {
   position: absolute;
   top: 10px;
   left: 10px;
   display: flex;
-  gap: 10px;
+  flex-direction: row;      /* Measure on the left, Layers on the right */
+  align-items: flex-start;  /* top-align panels */
+  gap: 12px;
   z-index: 1000;
 }
 
-/* Tool panel look */
+/* ---- Measure / Tools panel ---- */
 .tools-panel {
   background: #fff;
-  border-radius: 10px;
-  box-shadow: 0 2px 14px rgba(0,0,0,.12);
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(0,0,0,.12);
   padding: 10px;
   min-width: 180px;
   font: 13px/1.4 system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
 }
-
 .tp-header { margin-bottom: 6px; }
 .tp-row { display: flex; gap: 8px; margin-bottom: 6px; flex-wrap: wrap; }
 .tp-btn {
@@ -104,10 +39,60 @@ body { overflow: hidden; }
 .tp-btn:disabled { opacity: .5; cursor: default; }
 .tp-result { font-size: 12px; color: #333; margin-bottom: 6px; }
 
-/* Ensure layers panel sits to the right nicely even if it had absolute styles */
-.panels .lp-panel { position: relative !important; }
+/* ---- Layers panel ---- */
+.lp-panel {
+  position: relative;             /* participate in flex row */
+  width: 380px;
+  max-height: 70vh;
+  overflow: auto;
+  background: #fff;
+  border: 1px solid #ddd;
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(0,0,0,.12);
+  font: 14px/1.4 system-ui, sans-serif;
+}
+.lp-header { display: flex; align-items: center; padding: 10px 12px; border-bottom: 1px solid #eee; }
+.lp-spacer { flex: 1; }
+.lp-user { display: flex; gap: 8px; align-items: center; }
+.lp-table { width: 100%; border-collapse: collapse; }
+.lp-table th, .lp-table td { padding: 8px 10px; border-bottom: 1px solid #f4f4f4; }
+.lp-row:hover { background: #fafafa; }
+.lp-row.lp-row-active { background: #e6f7ff; border-left: 4px solid #1890ff; }
+.lp-name { display: inline-block; max-width: 230px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lp-btn { padding: 4px 8px; border: 1px solid #ddd; border-radius: 6px; background: #f7f7f7; cursor: pointer; }
+.lp-btn.lp-logout { background: #fff; }
+.lp-muted { color: #777; padding: 10px; }
+.lp-error { color: #b00020; padding: 10px; }
 
-/* Make popups draw above labels/canvas (from earlier fix) */
+/* ---- Login page ---- */
+.auth-wrap { position: fixed; inset: 0; display: grid; place-items: center; background: #f6f7f9; }
+.auth-card {
+  width: 320px; padding: 24px; border-radius: 12px; background: #fff;
+  box-shadow: 0 10px 30px rgba(0,0,0,.12); display: flex; flex-direction: column; gap: 10px;
+}
+.auth-card h2 { margin: 0 0 6px 0; }
+.auth-card input { padding: 10px; border: 1px solid #ddd; border-radius: 8px; font-size: 14px; }
+.auth-card button { margin-top: 6px; padding: 10px; border: 1px solid #ddd; border-radius: 8px; cursor: pointer; background: #f1f3f5; }
+.auth-error { color: #b00020; font-size: 13px; }
+
+/* ---- Popups above canvas/layers ---- */
 .maplibregl-popup { z-index: 10000 !important; }
-.maplibregl-popup-content { max-width: 340px; max-height: 50vh; overflow: auto; white-space: normal; }
-.maplibregl-popup-content pre { margin: 0; white-space: pre-wrap; word-break: break-word; overflow-wrap: anywhere; }
+.maplibregl-canvas, .maplibregl-canvas-container { z-index: 0 !important; }
+.maplibregl-popup-content {
+  max-width: 340px;
+  max-height: 50vh;
+  overflow: auto;
+  white-space: normal;
+  font: 12px/1.4 system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+}
+.maplibregl-popup-content pre {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+}
+
+/* ---- Responsive: stack panels on small screens ---- */
+@media (max-width: 720px) {
+  .panels { flex-direction: column; align-items: stretch; }
+}
