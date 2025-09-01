@@ -4,6 +4,7 @@ import maplibregl, { Popup } from 'maplibre-gl'
 import { useEffect, useRef, useState } from 'react'
 import LayersPanel from './components/LayersPanel'
 import LoginPage from './components/LoginPage'
+import MeasurePanel from './components/MeasurePanel'
 import { me, saveMapState, getToken, API_BASE } from './api'
 import type { User, MapState, LayerState } from './types'
 
@@ -82,12 +83,12 @@ const App = () => {
       style,
       center: [2.2137, 46.2276],
       zoom: 6,
-      transformRequest: (url) => {
-        const t = getToken()
+      transformRequest: (url: string) => {
+        const t = getToken();
         if (t && (url.startsWith(API_BASE) || url.includes('/tiles/'))) {
-          return { url, headers: { Authorization: `Bearer ${t}` } }
+          return { url, headers: { Authorization: `Bearer ${t}` } };
         }
-        return { url }
+        return { url };
       }
     })
     m.addControl(new maplibregl.NavigationControl(), 'top-right')
@@ -159,15 +160,20 @@ const App = () => {
 
   return (
     <div className="map">
-      <LayersPanel
-        map={mapRef.current}
-        mapReady={mapReady}
-        user={user}
-        onLogout={() => setUser(null)}
-        initialState={user.map_state?.layers ?? {}}
-        onStateChange={(s) => setLayerState(s)}
-        onLayerSelect={(layerId) => setSelectedLayer(layerId)} // Handle layer selection
-      />
+      {/* panels row (left-top) */}
+      <div className="panels">
+        <MeasurePanel map={mapRef.current} mapReady={mapReady} />
+        <LayersPanel
+          map={mapRef.current}
+          mapReady={mapReady}
+          user={user}
+          onLogout={() => setUser(null)}
+          initialState={user.map_state?.layers ?? {}}
+          onStateChange={(s) => setLayerState(s)}
+          onLayerSelect={(layerId) => setSelectedLayer(layerId)}
+        />
+      </div>
+
       <div ref={containerRef} style={{ width: '100%', height: '100%' }} />
     </div>
   )

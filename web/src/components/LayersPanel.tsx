@@ -10,7 +10,7 @@ type Props = {
   initialState?: Record<number, LayerState>
   onStateChange?: (s: Record<number, LayerState>) => void
   mapReady?: boolean
-  onLayerSelect: (layerId: number) => void
+  onLayerSelect: (layerId: number | null) => void;
 }
 
 type LayerState = { enabled: boolean; visible: boolean }
@@ -191,8 +191,9 @@ export default function LayersPanel({ map, user, onLogout, initialState, onState
                 className={`lp-row ${selectedLayer === r.id ? 'lp-row-active' : ''}`}
                 title={r.description ?? ''}
                 onClick={() => {
-                  setSelectedLayer(r.id); // Update the selected layer state
-                  onLayerSelect(r.id); // Notify parent about the selection
+                  const isSelected = selectedLayer === r.id;
+                  setSelectedLayer(isSelected ? null : r.id); // Toggle selection
+                  onLayerSelect(isSelected ? null : r.id); // Notify parent
                 }}
               >
                 <td>
