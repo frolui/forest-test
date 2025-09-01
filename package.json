@@ -1,0 +1,10 @@
+{
+  "devDependencies": {
+    "@types/maplibre-gl": "^1.14.0",
+    "@types/react": "^19.1.12"
+  },
+  "dependencies": {
+    "maplibre-gl": "^5.7.0",
+    "react": "^19.1.1"
+  }
+}

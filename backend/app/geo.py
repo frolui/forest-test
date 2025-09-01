@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Response, Depends, Request
+from pydantic import BaseModel
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 from .deps import get_session, get_current_user
@@ -6,6 +7,10 @@ from .cache_mvt import redis, TTL, get_layer_version, tile_cache_key, MVT_SQL
 import hashlib
 
 router = APIRouter(prefix="", tags=["geo"])
+
+class GeoJSONPolygon(BaseModel):
+    type: str
+    coordinates: list
 
 @router.get("/layers/")
 async def get_layers(
@@ -55,3 +60,49 @@ async def layer_mvt(
     etag = hashlib.md5(payload).hexdigest()
     return Response(payload, media_type="application/vnd.mapbox-vector-tile",
                     headers={"Cache-Control": f"public, max-age={TTL}", "ETag": etag})
+
+@router.post("/get_analysis")
+async def get_analysis(
+    geom: GeoJSONPolygon,
+    db: AsyncSession = Depends(get_session),
+    user = Depends(get_current_user),
+):
+    sql = text("""
+        with input as (
+            select st_setsrid(ST_GeomFromGeoJSON((:gjson)::json), 4326) as geom
+        ),
+        layers_ref as (select
+            (select id from layers where public_id = 'population_density') as population_layer_id,
+            (select id from layers where public_id = 'bd_foret_v2')        as forest_layer_id
+        ),
+        population as (
+            select coalesce(sum((f.properties->>'population')::bigint), 0) as total_population
+            from features f
+            join input i on st_intersects(f.geom, i.geom)
+            cross join layers_ref l
+            where f.layer_id = l.population_layer_id
+        ),
+        forest_stat as (
+            select coalesce(jsonb_object_agg(type, area_km2), '{}'::jsonb) as tfv_area_map
+            from (
+                select
+                    lower(f.properties->>'tfv') as type,
+                    round((sum(st_area(f.geom::geography)) / 1000000.0)::numeric, 3) as area_km2
+                from features f
+                join input i on st_intersects(f.geom, i.geom)
+                cross join layers_ref l
+                where f.layer_id = l.forest_layer_id
+                group by 1) s
+        )
+        select
+            p.total_population,
+            fs.tfv_area_map as statistics
+        from population p
+        cross join forest_stat fs;
+    """)
+    res = await db.execute(sql, {"gjson": geom.model_dump_json()})
+    row = res.mappings().one()
+    return {
+        "total_population": int(row["total_population"] or 0),
+        "statistics": row.get("statistics") or {}
+    }

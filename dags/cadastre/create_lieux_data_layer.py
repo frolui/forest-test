@@ -3,24 +3,26 @@ from airflow.operators.python import PythonOperator
 from shared.postgres_data_management import load_vector_to_postgis, run_sql_script
 from shared.files_management import download_file, delete_file, unzip_gz_file
 from datetime import datetime
+import gzip
+import os
 
 default_args = {
     'start_date': datetime(2025, 1, 2),
 }
 
 with DAG(
-    'download_kontur_population',
+    'load_lieux_data',
     default_args=default_args,
     schedule_interval=None,
     catchup=False,
 ) as dag:
 
     download_task = PythonOperator(
-        task_id='download_population_data',
+        task_id='download_lieux_archive',
         python_callable=download_file,
         op_kwargs={
-            'url': 'https://geodata-eu-central-1-kontur-public.s3.amazonaws.com/kontur_datasets/kontur_population_FR_20231101.gpkg.gz',
-            'destination_path': '/opt/airflow/data/kontur_population_FR_20231101.gpkg.gz'
+            'url': 'https://cadastre.data.gouv.fr/data/etalab-cadastre/latest/geojson/departements/18/cadastre-18-lieux_dits.json.gz',
+            'destination_path': '/opt/airflow/data/cadastre/cadastre-18-lieux.json.gz'
         },
         do_xcom_push=True,
     )
@@ -29,26 +31,26 @@ with DAG(
         task_id='unzip_gz_file',
         python_callable=unzip_gz_file,
         op_kwargs={
-            'source_path': "{{ ti.xcom_pull(task_ids='download_population_data') }}",
-            'destination_path': '/opt/airflow/data/kontur_population_FR_20231101.gpkg'
+            'source_path': "{{ ti.xcom_pull(task_ids='download_lieux_archive') }}",
+            'destination_path': '/opt/airflow/data/cadastre/cadastre-18-lieux.json'
         },
         do_xcom_push=True,
     )
 
     load_task = PythonOperator(
-        task_id="load_population",
+        task_id="load_lieux",
         python_callable=load_vector_to_postgis,
         op_kwargs={
             "vector_path": "{{ ti.xcom_pull(task_ids='unzip_gz_file') }}",
-            "table_name": "france_population_h3",
+            "table_name": "lieux",
         },
     )
 
     create_layer_task = PythonOperator(
-        task_id='create_population_layer',
+        task_id='create_lieux_layer',
         python_callable=run_sql_script,
         op_kwargs={
-            'script_path': '/opt/airflow/dags/population/sql/create_population_layer.sql',
+            'script_path': '/opt/airflow/dags/cadastre/sql/create_lieux_data_layer.sql',
         },
     )
 
@@ -57,7 +59,7 @@ with DAG(
         python_callable=lambda paths: [delete_file(path) for path in paths],
         op_kwargs={
             "paths": [
-                "{{ ti.xcom_pull(task_ids='download_population_data') }}",
+                "{{ ti.xcom_pull(task_ids='download_lieux_archive') }}",
                 "{{ ti.xcom_pull(task_ids='unzip_gz_file') }}",
             ]
         },

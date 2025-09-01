@@ -1,7 +1,7 @@
 from airflow import DAG
 from airflow.operators.python import PythonOperator
-from dags.shared.postgres_data_management import load_vector_to_postgis
-from dags.shared.files_management import download_file, delete_file
+from shared.postgres_data_management import load_vector_to_postgis, run_sql_script
+from shared.files_management import download_file, delete_file
 from datetime import datetime
 import py7zr
 import os
@@ -29,7 +29,7 @@ default_args = {
 }
 
 with DAG(
-    'load_bd_foret_dynamic',
+    'load_bd_foret_data',
     default_args=default_args,
     schedule_interval=None,
     catchup=False,
@@ -49,7 +49,7 @@ with DAG(
         task_id='extract_shapefile',
         python_callable=extract_shapefile_from_7z,
         op_kwargs={
-            'archive_path': "{{ ti.xcom_pull(task_ids='download_task') }}",
+            'archive_path': "{{ ti.xcom_pull(task_ids='download_bd_foret_archive') }}",
             'output_dir': '/opt/airflow/data/extracted_shp/',
             'target_base': 'BDFORET_2-0__SHP_LAMB93_D018_2014-04-01/BDFORET/1_DONNEES_LIVRAISON/BDF_2-0_SHP_LAMB93_D018/FORMATION_VEGETALE'
         }
@@ -64,9 +64,17 @@ with DAG(
         }
     )
 
+    create_layer_task = PythonOperator(
+        task_id='create_bd_foret_layer',
+        python_callable=run_sql_script,
+        op_kwargs={
+            'script_path': '/opt/airflow/dags/bd_foret/sql/update_bd_foret_data.sql',
+        },
+    )
+
     cleanup_task = PythonOperator(
         task_id='cleanup_files',
-        python_callable=delete_file,
+        python_callable=lambda paths: [delete_file(path) for path in paths],
         op_kwargs={
             "paths": [
                 "{{ ti.xcom_pull(task_ids='download_task') }}",
@@ -74,4 +82,4 @@ with DAG(
         },
     )
 
-    download_task >> extract_task >> load_task >> cleanup_task
+    download_task >> extract_task >> load_task >> create_layer_task >> cleanup_task

@@ -1,6 +1,7 @@
 // components/MeasurePanel.tsx
 import { useEffect, useMemo, useRef, useState } from 'react'
-import type maplibregl from 'maplibre-gl'
+import maplibregl, { MapMouseEvent } from 'maplibre-gl'
+import { API_BASE, getToken } from '../api';
 
 type Props = { map: maplibregl.Map | null; mapReady?: boolean }
 
@@ -46,6 +47,7 @@ function fmtArea(m2: number) {
 export default function MeasurePanel({ map, mapReady }: Props) {
   const [mode, setMode] = useState<Mode>('none')
   const [coords, setCoords] = useState<[number, number][]>([])
+  const [isFinished, setIsFinished] = useState(false)
   const finishedRef = useRef(false)
 
   // add source/layers once
@@ -96,7 +98,7 @@ export default function MeasurePanel({ map, mapReady }: Props) {
   useEffect(() => {
     if (!map) return
     if (mode === 'none') return
-    const onClick = (e: maplibregl.MapMouseEvent & maplibregl.EventData) => {
+    const onClick = (e: MapMouseEvent) => {
       if (finishedRef.current) return
       setCoords(prev => [...prev, [e.lngLat.lng, e.lngLat.lat]])
     }
@@ -120,14 +122,72 @@ export default function MeasurePanel({ map, mapReady }: Props) {
     return polyArea3857(coords)
   }, [mode, coords])
 
+  const sendAnalysisRequest = async (geojson: object) => {
+    try {
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      const t = getToken();
+      if (t) headers.Authorization = `Bearer ${t}`;
+
+      const response = await fetch(`${API_BASE}/get_analysis`, {
+        method: 'POST',
+        credentials: 'include',
+        headers,
+        body: JSON.stringify(geojson),
+      });
+
+      if (!response.ok) throw new Error(`Failed to fetch analysis results`);
+      const data = await response.json();
+      return data; // Return the full response object
+    } catch (e) {
+      console.error('Error fetching analysis results:', e);
+      return null;
+    }
+  };
+
+  const handleGetAnalysis = async () => {
+    if (coords.length < 3) return;
+
+    const geojson = {
+      type: 'Polygon',
+      coordinates: [[...coords, coords[0]]],
+    };
+
+    const analysisResult = await sendAnalysisRequest(geojson);
+
+    if (analysisResult !== null && map) {
+      const { total_population, statistics } = analysisResult;
+      const statsHtml = statistics && typeof statistics === 'object'
+        ? `<pre>${JSON.stringify(statistics, null, 2)}</pre>`
+        : '<p>No statistics available</p>';
+
+      const popup = new maplibregl.Popup({ closeOnClick: true })
+        .setLngLat(coords[0])
+        .setHTML(
+          `<div>
+            <h4>Analysis Results</h4>
+            <p>Total Population: <b>${total_population}</b></p>
+            <h5>Land Statistics:</h5>
+            ${statsHtml}
+          </div>`
+        )
+        .addTo(map);
+    }
+  };
+
   const start = (m: Mode) => {
     setMode(m)
     setCoords([])
     finishedRef.current = false
   }
-  const finish = () => { finishedRef.current = true }
+  const finish = () => {
+    finishedRef.current = true
+    setIsFinished(true)
+  }
   const clear = () => {
-    setMode('none'); setCoords([]); finishedRef.current = false
+    setMode('none')
+    setCoords([])
+    finishedRef.current = false
+    setIsFinished(false)
     if (map) {
       const src = map.getSource('measure-src') as maplibregl.GeoJSONSource
       src && src.setData({ type: 'FeatureCollection', features: [] })
@@ -151,10 +211,14 @@ export default function MeasurePanel({ map, mapReady }: Props) {
         {mode==='none'   && <span>Choose a tool</span>}
       </div>
       <div className="tp-row">
-        <button className="tp-btn primary" onClick={()=>console.log('Get analysis clicked')}>Get analysis</button>
-      </div>
-      <div className="tp-row">
-        <button className="tp-btn primary" onClick={() => console.log('Generate CHM clicked')}>Generate CHM</button>
+        <button
+          className="tp-btn primary"
+          onClick={handleGetAnalysis}
+          disabled={!isFinished}
+        >
+          Get analysis
+        </button>
+        <button className="tp-btn primary" onClick={() => console.log('Generate CHM clicked')} disabled={!isFinished}>Generate CHM</button>
       </div>
     </div>
   )
