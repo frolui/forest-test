@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import type maplibregl from 'maplibre-gl'
+import maplibregl from 'maplibre-gl'; // Change from 'import type' to regular import
 import { fetchLayers, mvtUrlFor, logout } from '../api'
 import type { DbLayer, User } from '../types'
 
@@ -23,7 +23,7 @@ function colorFor(id: number) {
 function ensureLayerAdded(map: maplibregl.Map, id: number) {
   const src = `src-${id}`
   if (!map.getSource(src)) {
-    // шаблон тайлов оставляем как есть, только убираем ?token= если вдруг есть
+    // Keep the tile template as is, only remove ?token= if it exists
     const raw = mvtUrlFor(id)
     const tilesUrl = raw.replace(/([?&])token=[^&]*/g, '').replace(/[?&]$/, '')
 
@@ -31,7 +31,7 @@ function ensureLayerAdded(map: maplibregl.Map, id: number) {
 
     map.addSource(src, { type: 'vector', tiles: [tilesUrl], minzoom: 0, maxzoom: 22 })
 
-    // Полигоны
+    // Polygons
     map.addLayer(
       {
         id: `lyr-${id}-fill`,
@@ -44,7 +44,7 @@ function ensureLayerAdded(map: maplibregl.Map, id: number) {
       beforeId
     )
 
-    // Линии
+    // Lines
     map.addLayer(
       {
         id: `lyr-${id}-line`,
@@ -57,7 +57,7 @@ function ensureLayerAdded(map: maplibregl.Map, id: number) {
       beforeId
     )
 
-    // Точки
+    // Points
     map.addLayer(
       {
         id: `lyr-${id}-circle`,
@@ -147,12 +147,15 @@ export default function LayersPanel({ map, user, onLogout, initialState, onState
       const properties = feature.properties
 
       // Create a popup with feature properties
+      // Refine popup styles to ensure text wraps properly and doesn't overflow
       const popup = new maplibregl.Popup({ closeOnClick: true })
         .setLngLat(e.lngLat)
         .setHTML(
-          `<div>
+          `<div style="max-width: 300px; max-height: 400px; overflow: auto; word-wrap: break-word; overflow-wrap: break-word; white-space: pre-wrap;">
             <h4>Feature Properties</h4>
-            <pre>${JSON.stringify(properties, null, 2)}</pre>
+            <pre style="white-space: pre-wrap; word-wrap: break-word; overflow-wrap: break-word;">
+              ${JSON.stringify(properties, null, 2)}
+            </pre>
           </div>`
         )
         .addTo(map)
