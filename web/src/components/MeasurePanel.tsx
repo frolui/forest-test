@@ -1,4 +1,3 @@
-// components/MeasurePanel.tsx
 import { useEffect, useMemo, useRef, useState } from 'react'
 import maplibregl, { MapMouseEvent } from 'maplibre-gl'
 import { API_BASE, getToken } from '../api';

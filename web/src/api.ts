@@ -2,7 +2,7 @@ import type { User, DbLayer, MapState } from './types';
 
 export const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:8000';
 
-// простое локальное хранилище токена (берём из /auth/login)
+// Simple local token storage (retrieved from /auth/login)
 let token: string | null = localStorage.getItem('token');
 export function getToken() { return token; }
 
@@ -37,7 +37,6 @@ export async function fetchLayers(): Promise<DbLayer[]> {
 }
 
 export function mvtUrlFor(layerId: number) {
-  // не добавляем ?token=... — авторизация идёт через Authorization заголовок
   return `${API_BASE}/tiles/layer/${layerId}/{z}/{x}/{y}.mvt`;
 }
 

@@ -72,6 +72,14 @@ with DAG(
         },
     )
 
+    hexagonize_task = PythonOperator(
+        task_id='hexagonize_bd_foret_layer',
+        python_callable=run_sql_script,
+        op_kwargs={
+            'script_path': '/opt/airflow/dags/bd_foret/sql/hexagonize_db_foret_data.sql',
+        },
+    )
+
     cleanup_task = PythonOperator(
         task_id='cleanup_files',
         python_callable=lambda paths: [delete_file(path) for path in paths],
@@ -82,4 +90,4 @@ with DAG(
         },
     )
 
-    download_task >> extract_task >> load_task >> create_layer_task >> cleanup_task
+    download_task >> extract_task >> load_task >> create_layer_task >> hexagonize_task >> cleanup_task

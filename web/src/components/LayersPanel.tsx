@@ -23,7 +23,7 @@ function colorFor(id: number) {
 function ensureLayerAdded(map: maplibregl.Map, id: number) {
   const src = `src-${id}`
   if (!map.getSource(src)) {
-    // Keep the tile template as is, only remove ?token= if it exists
+    // Ensure the tile template remains unchanged, only remove ?token= if it exists
     const raw = mvtUrlFor(id)
     const tilesUrl = raw.replace(/([?&])token=[^&]*/g, '').replace(/[?&]$/, '')
 
@@ -77,8 +77,6 @@ function ensureLayerAdded(map: maplibregl.Map, id: number) {
   }
 }
 
-
-
 function setLayerVisibility(map: maplibregl.Map, id: number, show: boolean) {
   for (const kind of ['fill','line','circle'] as const) {
     const lid = `lyr-${id}-${kind}`
@@ -107,7 +105,7 @@ export default function LayersPanel({ map, user, onLogout, initialState, onState
     return () => { cancel = true }
   }, [])
 
-  // гидратация состояния — только после загрузки стиля карты
+  // Hydrate state only after the map style has loaded
   const hydratedRef = useRef(false)
   useEffect(() => {
     if (hydratedRef.current) return
@@ -126,7 +124,7 @@ export default function LayersPanel({ map, user, onLogout, initialState, onState
     }
   }, [map, mapReady, rows, initialState])
 
-  // отдаём изменения наверх — для сохранения map_state
+  // Pass changes to the parent component for saving map_state
   useEffect(() => { onStateChange?.(state) }, [state, onStateChange])
 
   const onClick = (e: maplibregl.MapMouseEvent & maplibregl.EventData) => {
@@ -136,6 +134,7 @@ export default function LayersPanel({ map, user, onLogout, initialState, onState
       return
     }
 
+    // Query features from the selected layer
     const features = map.queryRenderedFeatures(e.point, {
       layers: [`lyr-${selectedLayer}-fill`, `lyr-${selectedLayer}-line`, `lyr-${selectedLayer}-circle`]
     })

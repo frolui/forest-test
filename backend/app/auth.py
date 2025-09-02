@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 from sqlalchemy import select
 
 from .config import settings
-from .db import Session
+from .deps import SessionLocal as Session
 from .models import User
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -24,15 +24,15 @@ def create_token(uid: int):
 
 
 def _extract_token(request: Request) -> str | None:
-    # 1) из cookie
+    # 1) from cookie
     tok = request.cookies.get(COOKIE_NAME)
     if tok:
         return tok
-    # 2) из Authorization: Bearer
+    # 2) from Authorization: Bearer
     auth = request.headers.get("authorization")
     if auth and auth.lower().startswith("bearer "):
         return auth[7:].strip()
-    # 3) из query ?token=...
+    # 3) from query ?token=...
     tok = request.query_params.get("token")
     return tok
 
@@ -72,7 +72,6 @@ async def login(creds: Creds, resp: Response):
         if not u or not bcrypt.verify(creds.password, u.password_hash):
             raise HTTPException(401, "bad creds")
     token = create_token(u.id)
-    # httpOnly cookie — для API-вызовов
     resp.set_cookie(
         COOKIE_NAME,
         token,
@@ -81,7 +80,6 @@ async def login(creds: Creds, resp: Response):
         samesite="lax",
         max_age=60 * settings.JWT_EXPIRES_MIN,
     )
-    # также отдадим token в теле — фронт подставит его в URL тайлов (?token=...)
     return {"ok": True, "token": token}
 
 
@@ -93,7 +91,7 @@ async def logout(resp: Response):
 
 @router.get("/me")
 async def me(user: User = Depends(get_current_user)):
-    # map_state может отсутствовать — вернём null
+    # map_state may be missing — return null
     email = getattr(user, "email", None)
     map_state = getattr(user, "map_state", None)
     return {"id": user.id, "email": email, "map_state": map_state}
@@ -103,7 +101,6 @@ async def me(user: User = Depends(get_current_user)):
 async def save_map_state(state: dict, user: User = Depends(get_current_user)):
     async with Session() as s:
         dbu = await s.get(User, user.id)
-        # если у модели нет колонки map_state — добавь её как JSONB в БД и модели
         setattr(dbu, "map_state", state)
         await s.commit()
     return {"ok": True}

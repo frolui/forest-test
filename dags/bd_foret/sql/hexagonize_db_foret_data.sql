@@ -1,19 +1,14 @@
 drop table if exists formation_vegetale;
 create table formation_vegetale as (
     select 
-        -- "ID" as gid,
-        -- "CODE_TFV" as code_tfv,
-        -- "TFV" as tfv,
-        -- "TFV_G11" as tfv_g11,
-        -- "ESSENCE" as essence,
-        id,
-        code_tfv,
-        tfv,
-        tfv_g11,
-        essence,
-        st_transform(geom, 4326) as geom
+        "ID" as id,
+        "CODE_TFV" as code_tfv,
+        "TFV" as tfv,
+        "TFV_G11" as tfv_g11,
+        "ESSENCE" as essence,
+        st_transform(geometry, 4326) as geom
     from 
-        formation_vegetale_in
+        bd_foret_formation_vegetale
 );
 
 create index formation_vegetale_gix on formation_vegetale using gist(geom);
